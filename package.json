@@ -1,6 +1,6 @@
 {
   "name": "didi-command-publish",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "a component publish for didi",
   "main": "index.js",
   "scripts": {

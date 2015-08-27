@@ -4,11 +4,11 @@ var child_process = require('child_process');
 var path = require('path');
 
 exports.name = 'publish';
-exports.usage = '<command> [options]';
+exports.usage = '[options]';
 exports.desc = 'A awesome publish for component of fis-didi';
 exports.register = function(commander) {
 	commander.on('--help', function() {
-		console.log('Publishes \'.\' if no argument supplied');
+		console.log('Publishes \'.\' ');
 	});
 	commander
 		.option('-v, --version', 'specify publish version', String)
