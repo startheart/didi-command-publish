@@ -11,24 +11,24 @@ exports.register = function(commander) {
 		console.log('Publishes \'.\' ');
 	});
 	commander
-		.option('-v, --version', 'specify publish version', String)
+		.option('-t, --tag <name>', 'specify publish tag', String)
 	commander.action(function() {
 
 		var args = Array.prototype.slice.call(arguments);
 		var options = args.pop();
 		var cmd = args.shift();
-		if(options.version){
-			pushVersion(options.version);
-		}else{
+		if (options.tag) {
+			pushVersion(options.tag);
+		} else {
 			gitPushTag();
 		}
 	});
 }
 
 //获取component.json
-function get_conf() {
-	var root = fis.util.realpath(process.cwd()),
-		filename = "component.json",
+function get_conf(root) {
+	root = root || fis.util.realpath(process.cwd());
+	var filename = "component.json",
 		conf;
 
 	var cwd = root,
@@ -48,14 +48,50 @@ function get_conf() {
 	return conf;
 }
 
-function pushVersion(version) {
-	var configPath = get_conf();
+function cd(dir) {
+	return 'cd ' + dir + ' && ';
+}
+
+function isStatusClean(stdout) {
+	var cleanModel = ["On branch master", "Your branch is up-to-date with 'origin/master'.", "nothing to commit, working directory clean"];
+	stdout = stdout.trim().split(/\n|\r/);
+	if ( stdout[0].toLowerCase().trim() !== cleanModel[0].toLowerCase().trim()
+		&&  stdout[stdout.length -1].toLowerCase().trim() !== cleanModel[cleanModel.length - 1].toLowerCase().trim()
+		) {
+		return false;
+	}
+	return true;
+}
+
+function isPushTagSuccess(stdout) {
+	return stdout.indexOf('* [new tag]') > 0;
+}
+function isPushRemoteSuccess(stdout){
+	stdout = stdout.split(/\n|\r/);
+	var reg = /\[master [^\]]+\] update new tag [0-9\.]+ use \[didi publish\]/;
+	return stdout[0].match(reg);
+}
+function pushVersion(version, repositoryRoot, callback) {
+	repositoryRoot = repositoryRoot || process.cwd();
+	var configPath = get_conf(repositoryRoot);
+	debugger;
+	version = (version || '').trim();
+	var cmdStatus = 'git status';
+	var cmdCommitAndPushOrigin = 'git commit -am \'update new tag ' + version + ' use [didi publish] \' && git push origin master';
+	cmdCommitAndPushOrigin = cd(repositoryRoot) + cmdCommitAndPushOrigin;
+	cmdStatus = cd(repositoryRoot) + cmdStatus;
+
+	if (fis.util.exists(repositoryRoot) === false) {
+		fis.log.error('Unusable repository root:' + repositoryRoot);
+		return
+	}
+
 	if (!/^\d[0-9\.]+\d$/.test(version)) {
 		fis.log.error('unusable version:' + version);
 		return;
 	}
 	if (configPath === false) {
-		console.log('must enter component root path');
+		console.log('Must enter component root path');
 		return false;
 	}
 	var componentJSON = JSON.parse(fis.util.read(configPath));
@@ -64,55 +100,74 @@ function pushVersion(version) {
 		return gitPushTag(version);
 	}
 	componentJSON.version = version;
-	fis.util.write(configPath, JSON.stringify(componentJSON));
-	var status = 'git status';
-	exeCmd(status, function(stdout) {
-		if (stdout.indexOf('nothing to commit, working directory clean') > 0) {
+	exeCmd(cmdStatus, function(stdout) {
+		if (isStatusClean(stdout)) {
 			next();
 		} else {
+			callback(stdout);
 			print_faq();
 		}
 	});
 
 	function next() {
+		fis.util.write(configPath, JSON.stringify(componentJSON, null, '\t'));
 		exeCmd(
-			'git commit -am \'update new tag ' + version + ' use [didi publish] \' && git push origin master',
-			function(stdout) {
-				if (stdout.indexOf('reused 0') > 0) {
-					gitPushTag(version);
+				cmdCommitAndPushOrigin,
+				function(stdout) {
+					if ( isPushRemoteSuccess(stdout) ) {
+						gitPushTag(version, repositoryRoot, callback);
+					}else{
+						fis.log.error('push failed \n' + stdout);
+					}
 				}
-			})
+			)
 	}
 }
 
-function gitPushTag(version) {
-	var configPath = get_conf();
+function gitPushTag(version, repositoryRoot, callback) {
+	callback = callback || function() {};
+	repositoryRoot = repositoryRoot || process.cwd();
+	var configPath = get_conf(repositoryRoot);
+	version = version || JSON.parse(fis.util.read(configPath)).version;
+	version = version.trim();
 	if (configPath === false) {
 		console.log('must enter component root path');
 		return false;
 	}
-	version = version || JSON.parse(fis.util.read(configPath)).version;
+	var cmdAddVersion = 'git tag -a {-version-} -m \'create tag v{-version-} use didi publish\' && git push origin --tags';
+	var cmdStatus = 'git status';
+	cmdAddVersion = cd(repositoryRoot) + cmdAddVersion;
+	cmdStatus = cd(repositoryRoot) + cmdStatus;
 
-	var cmd = 'git tag -a {-version-} -m \'create tag v{-version-} use didi publish\' && git push origin --tags';
+	if (fis.util.exists(repositoryRoot) === false) {
+		fis.log.error('Unusable repository root:' + repositoryRoot);
+		return
+	}
+
 	var data = {
 		version: version
 	}
-	cmd = cmd.replace(/\{\-([^\-]+)\-\}/g, function(code, key) {
+	cmdAddVersion = cmdAddVersion.replace(/\{\-([^\-]+)\-\}/g, function(code, key) {
 		return data[key.trim()] || '';
 	});
-	var status = 'git status';
-	exeCmd(status, function(stdout) {
-		if (stdout.indexOf('nothing to commit, working directory clean') > 0) {
+	exeCmd(cmdStatus, function(stdout) {
+		if (isStatusClean(stdout)) {
 			next();
 		} else {
+			callback(stdout);
 			print_faq();
 		}
 	});
 
 	function next() {
-		exeCmd(cmd, function(stdout) {
-			if (stdout.indexOf('* [new tag]') > 0) {
+		exeCmd(cmdAddVersion, function(stdout) {
+			if (isPushTagSuccess(stdout)) {
 				fis.log.notice('Successful');
+				callback();
+			}else{
+				fis.log.error('failed' + stdout);
+				callback(stdout);
+				print_faq();
 			}
 		})
 	}
@@ -131,7 +186,7 @@ function exeCmd(cmd, cb) {
 	});
 	git.stdout.pipe(process.stdout);
 	git.stderr.pipe(process.stderr);
-	
+
 	git.on('exit', function(code) {
 		finishData[1] = code
 		fnish();
@@ -141,7 +196,6 @@ function exeCmd(cmd, cb) {
 		if (finishData[0] === '-' || finishData[0] === '-') {
 			return;
 		}
-		debugger;
 		if (finishData[1] === 1) {
 			print_faq();
 		} else {
@@ -161,3 +215,7 @@ function print_faq() {
 	exeCmd('git tag');
 	console.log(faqList.join('\n'));
 }
+
+
+exports.gitPushTag = gitPushTag;
+exports.pushVersion = pushVersion;

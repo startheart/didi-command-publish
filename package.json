@@ -1,10 +1,10 @@
 {
   "name": "didi-command-publish",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "a component publish for didi",
   "main": "index.js",
   "scripts": {
-    "test": "mocha --require should --reporter spec --timeout 10000"
+    "test": "mocha --require should --reporter spec --timeout 100000 "
   },
   "repository": {
     "type": "git",
@@ -17,6 +17,11 @@
   ],
   "author": "webzhangnan",
   "license": "ISC",
+  "devDependencies": {
+    "mocha": "*",
+    "should": "*",
+    "fis-kernel": "*"
+  },
   "bugs": {
     "url": "https://github.com/webzhangnan/didi-command-publish/issues"
   },
