@@ -42,6 +42,8 @@ didi publish
 - 当前处于`master`分支。
 - 远程仓库包含`origin`(使用`git remote -v`查看)。通过`git clone`下来的仓库默认就是将远端地址设置为`origin`。
 
-发布阶段，程序将会检查`component.json`是否符合规范，保证其他开发者可以正常安装。
 
-""
+**发布阶段，程序将会检查`component.json`是否符合规范，保证其他开发者可以正常安装**。
+
+
+
