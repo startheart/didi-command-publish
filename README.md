@@ -31,7 +31,7 @@ didi publish -t 1.0.0
 里`version`字段值为版本号发布。
 
 ```bash
-didi publish -t 1.0.0
+didi publish 
 ```
 
 须保证新版本号不会发生冲突，即不在**已发布版本列表**内，可以通过`git tag`来查看。
