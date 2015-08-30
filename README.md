@@ -1,4 +1,4 @@
-# component模块发布
+# component模块发布器
 
 [fis-didi](https://github.com/webzhangnan/fis-didi)可以直接通过`didi install <namespace>/<comonent name>`命令安装一个模块。
  然后在项目里面通过`require("<component name"")`来获取该模块。
