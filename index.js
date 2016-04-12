@@ -100,7 +100,7 @@ function pushVersion(version, repositoryRoot, callback) {
 	repositoryRoot = repositoryRoot || process.cwd();
 	var configPath = get_conf(repositoryRoot);
 	version = (version || '').trim();
-	var cmdCommitAndPushOrigin = 'git commit -am \'update new tag ' + version + ' use [didi publish] \' && git push origin master';
+	var cmdCommitAndPushOrigin = 'git commit -am "update new tag ' + version + ' use [didi publish] " && git push origin master';
 	cmdCommitAndPushOrigin = cd(repositoryRoot) + cmdCommitAndPushOrigin;
 	var componentJSON = JSON.parse(fis.util.read(configPath));
 	if( !!regVersion.test(version) === false ){
@@ -141,13 +141,14 @@ function pushTag(repositoryRoot, callback) {
 	var componentJSON = JSON.parse(fis.util.read(configPath));
 	var version = componentJSON.version;
 	version = version.trim();
-	var cmdAddVersion = 'git tag -a {-version-} -m \'create tag v{-version-} use didi publish\' && git push origin --tags';
-	cmdAddVersion = cd(repositoryRoot) + cmdAddVersion;
+	var cmdAddVersion = 'git tag -a "{-version-}" -m "create tag v{-version-} use didi publish" && git push origin --tags';
+	
+	var cwd = fis.util.realpathSafe(repositoryRoot);
 	var data = {
 		version: version
 	};
 	cmdAddVersion = parseTpl(cmdAddVersion, data); 
-	exeCmd(cmdAddVersion, finish);
+	exeCmd(cmdAddVersion, finish, {cwd: cwd});
 	function finish(err, stdout) {
 		if(err){
 			callback(err);
@@ -211,10 +212,11 @@ function isPushRemoteSuccess(stdout){
 	var reg = /\[master [^\]]+\] update new tag [0-9\.]+ use \[didi publish\]/;
 	return stdout[0].match(reg);
 }
-function exeCmd(cmd, cb) {
+function exeCmd(cmd, cb, options) {
 	cb = cb || function(err) {	err && print_faq() };
 	var finishData = ['-', '-'];
-	var git = child_process.exec(cmd, function(err, stdout, stderr) {
+	var options = fis.util.merge({}, options);
+	var git = child_process.exec(cmd, options, function(err, stdout, stderr) {
 		if (err) {
 			return cb(err);
 		}
@@ -224,15 +226,15 @@ function exeCmd(cmd, cb) {
 	git.stdout.pipe(process.stdout);
 	git.stderr.pipe(process.stderr);
 
-	git.on('exit', function(code) {
-		finishData[1] = code
-		fnish();
-	});
+	// git.on('exit', function(code) {
+	// 	finishData[1] = code
+	// 	fnish();
+	// });
 
 	function fnish() {
-		if (finishData[0] === '-' || finishData[0] === '-') {
-			return;
-		}
+		// if (finishData[0] === '-' || finishData[0] === '-') {
+		// 	return;
+		// }
 		if (finishData[1] === 1) {
 			cb('Cmd happend fatal: ' + cmd);
 		} else {
@@ -337,18 +339,21 @@ function checkComponent(componentPath){
 	return 0;
 }
 function print_faq() {
+	fis.log.notice('\n\n你可以手动发布：git tag -a "{component.json里面的版本号}" -m "create tag v{component.json里面的版本号} use didi publish" && git push origin --tags');	
 	var faqList = [
 		'\n\n发布失败，请确认：'.bold.red,
 		'1、component项目文件夹内执行',
 		'2、所有修改都已经push到远程仓库(git status)',
 		'3、已设置origin设置为远程仓库url地址(git remote -v)',
 		'4、处于本地仓库的master分支',
-		'5、与如下已发布版本的号不同(component.json)'
+		'5、与如下已发布版本的号不同(component.json)',
+		''
 	];
 	exeCmd('git tag', function(){
 
 	});
 	fis.log.warning(faqList.join('\n'));
+		
 }
 function parseTpl(str, data){
 	return str.replace(/\{\-([^\-]+)\-\}/g, function(code, key) {
